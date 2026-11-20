@@ -7,10 +7,16 @@
 小浣熊**不需要协议逆向**。它的 `box-agent` 本身就是 OpenAI 兼容 API + JWT token：
 
 - API: `https://xiaohuanxiong.com/api/web/llm/v2/chat/completions`
-- 认证: Bearer `auth.json.access_token`（明文 JWT，有效期约 24 天）
-- 模型目录: `model-profiles.json`（`provider: "openai"`）
+- 认证: Bearer `auth.json.access_token`（明文 JWT，有效期约 30 天）
+- 模型目录: `model-profiles.json`（`provider: "openai"`，每条带 `authFile` 字段）
 
 已实测：直连 curl + Node https 都返回真实回复，SSE 流式原生支持。
+
+## 关键设计
+
+- **token 自愈**：每次请求前实时重读 `auth.json`，客户端续期后自动用上新 token，无需重新 `plugin login`。插件拿不到 refresh_token，无法独立续期，只能跟随客户端。
+- **跨机器通用**：路径用 `homedir`/`USERPROFILE` 动态发现，不硬编码用户名。
+- **响应透传**：`chat.mjs` 原样透传上游响应（含 429 限流错误），绝不拦截改写——Magpie 网关会覆盖插件构造的非上游响应并包装成 502。
 
 ## 可用模型
 
@@ -35,9 +41,12 @@ cp index.mjs lib/*.mjs *.json C:/Users/<user>/.magpie-plugins/magpie-xiaohuanxio
 magpie.exe plugin add C:/Users/<user>/.magpie-plugins/magpie-xiaohuanxiong
 magpie.exe plugin login xiaohuanxiong
 
-# ⚠️ 改代码/装新插件后必须重启面板
-powershell.exe -NoProfile -Command "Get-Process magpie -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 2; Start-Process 'C:/Users/<user>/bin/magpie.exe' -ArgumentList '--app' -WindowStyle Hidden; Start-Sleep -Seconds 8"
+# 3. 重启面板使新插件生效
+#    ⚠️ 启动参数是 tray（或什么都不加），不是 --app —— --app 不是有效参数，会导致面板起不来
+powershell.exe -NoProfile -Command "Get-Process magpie -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 2; Start-Process 'C:/Users/<user>/bin/magpie.exe' -ArgumentList 'tray' -WindowStyle Hidden; Start-Sleep -Seconds 12"
 ```
+
+`magpie` / `magpie tray` 都会启动面板（含网关）；`magpie --app` 会报 `unknown agent "--app"`，面板起不来。
 
 ## 验证
 
