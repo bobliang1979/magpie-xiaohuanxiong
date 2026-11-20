@@ -5,7 +5,7 @@
  * 小浣熊的 box-agent 本身就是 OpenAI 兼容 API（/api/web/llm/v2）+ JWT token，
  * 插件只需读登录态并注入 Bearer，无需协议逆向。已实测直连返回真实回复。
  */
-import { readDesktopCredentials, loadCredentials, saveCredentials, readModels, API_BASE } from './lib/auth.mjs';
+import { readDesktopCredentials, loadCredentials, saveCredentials, readModels, hoursRemaining, configDir, authFile, API_BASE } from './lib/auth.mjs';
 import { magpieModels, buildProvider } from './lib/models.mjs';
 import { chat } from './lib/chat.mjs';
 
@@ -22,10 +22,18 @@ export default async function XiaoHuanXiongPlugin(input = {}) {
 
   function sessionFor(auth) {
     const creds = credsFromAuth(auth);
-    const key = creds.access?.slice(-12) || 'default';
+    const key = creds.access?.slice(-8) || 'default';
     let s = sessions.get(key);
     if (!s) {
-      s = { credentials: creds, apiBase: API_BASE };
+      s = {
+        credentials: creds,
+        apiBase: API_BASE,
+        // 自愈核心：每次请求/遇 401 时实时重读 auth.json。
+        // 客户端续期后会回写该文件，插件无需重新 login 即自动用上新 token。
+        refresh: () => {
+          try { return readDesktopCredentials().access; } catch { return creds.access; }
+        },
+      };
       sessions.set(key, s);
     }
     return s;
@@ -51,11 +59,16 @@ export default async function XiaoHuanXiongPlugin(input = {}) {
             try {
               const creds = readDesktopCredentials();
               saveCredentials(creds);
+              const hours = hoursRemaining(creds.access);
+              const expNote = hours == null ? '' :
+                hours < 0 ? ` ⚠️ token 已过期 ${Math.abs(hours).toFixed(0)}h，请在客户端重新登录` :
+                hours < 72 ? ` ⚠️ token 仅剩 ${hours.toFixed(0)}h，即将过期` :
+                ` (token 剩余 ${Math.round(hours)}h)`;
               return {
                 type: 'success',
                 key: JSON.stringify(creds),
                 accountId: creds.identity || 'xiaohuanxiong',
-                metadata: { uid: creds.identity, source: 'desktop' },
+                metadata: { uid: creds.identity, source: 'desktop', hoursRemaining: hours, expNote },
               };
             } catch (e) {
               return { type: 'failed', error: '读取小浣熊登录态失败：' + String(e.message || e).slice(0, 300) };
@@ -96,4 +109,4 @@ export default async function XiaoHuanXiongPlugin(input = {}) {
   };
 }
 
-export const _internal = { PROVIDER, readDesktopCredentials, readModels };
+export const _internal = { PROVIDER, readDesktopCredentials, readModels, hoursRemaining, configDir, authFile };
