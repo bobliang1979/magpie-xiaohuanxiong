@@ -1,0 +1,17 @@
+{
+  "name": "magpie-xiaohuanxiong",
+  "version": "0.1.0",
+  "description": "把商汤小浣熊订阅变成 Magpie 网关上的 OpenAI 兼容模型",
+  "type": "module",
+  "main": "./index.mjs",
+  "license": "MIT",
+  "engines": {"node": ">=20"},
+  "os": ["win32"],
+  "magpie": {
+    "name": "商汤小浣熊",
+    "maxConcurrency": 1,
+    "summary": {
+      "zh": "从小浣熊客户端读取登录态，把 sn-kimi-k3 / sn-qwen4-max 等模型接到 magpie，Hermes / WorkBuddy / Claude Code 等可直接调用。"
+    }
+  }
+}

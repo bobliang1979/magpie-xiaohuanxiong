@@ -1,0 +1,8 @@
+{
+  "package": "magpie-xiaohuanxiong",
+  "name": "商汤小浣熊",
+  "providers": ["xiaohuanxiong"],
+  "summary": {
+    "zh": "把商汤小浣熊订阅里的模型接到 magpie：从已登录客户端读取登录态，Hermes / WorkBuddy 可直接调用。"
+  }
+}
