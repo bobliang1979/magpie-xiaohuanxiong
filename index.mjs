@@ -84,7 +84,18 @@ export default async function XiaoHuanXiongPlugin(input = {}) {
           baseURL: API_BASE,
           apiKey: '***',
           async fetch(input_, init) {
-            return chat(sessionFor(auth), input_, init);
+            const s = sessionFor(auth);
+            // token 自愈（不碰 chat.mjs 透传逻辑）：每次请求前实时重读 auth.json。
+            // 客户端续期回写后自动用上新 token；chat.mjs 开头读 session.credentials.access，
+            // 自然拿到最新值。上游真实错误（如 429）仍由 chat.mjs 原样透传，网关不改。
+            try {
+              const fresh = readDesktopCredentials().access;
+              if (fresh && fresh !== s.credentials.access) {
+                s.credentials.access = fresh;
+                s.tokenRefreshedAt = Date.now();
+              }
+            } catch {}
+            return chat(s, input_, init);
           },
         };
       },
